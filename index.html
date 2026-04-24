@@ -543,6 +543,25 @@
         return state.speechMode === "mandarin" ? "普通話" : "廣東話";
       }
 
+      function speechLanguageCode() {
+        return state.speechMode === "mandarin" ? "zh-CN" : "zh-HK";
+      }
+
+      function isCantoneseVoiceCandidate(voice) {
+        return Boolean(
+          voice && (/^(zh-HK|yue)/i.test(voice.lang) || /Cantonese|Hong Kong|粵|廣東/i.test(voice.name))
+        );
+      }
+
+      function isMandarinVoiceCandidate(voice) {
+        return Boolean(
+          voice &&
+            !isCantoneseVoiceCandidate(voice) &&
+            (/^(zh-CN|zh-SG|zh-Hans|cmn|zh-TW)/i.test(voice.lang) ||
+              /Mandarin|普通|國語|国语|Taiwan|台灣|台湾|Ting-Ting|Mei-Jia|Sin-ji/i.test(`${voice.name} ${voice.lang}`))
+        );
+      }
+
       function selectedSpeechVoice(mode = state.speechMode) {
         if (!speechSupported()) {
           return null;
@@ -550,10 +569,8 @@
         const voices = window.speechSynthesis.getVoices();
         if (mode === "mandarin") {
           return (
-            voices.find((voice) => /^(zh-TW|zh-CN|zh-SG|zh-Hans|cmn)/i.test(voice.lang)) ||
-            voices.find((voice) => /Mandarin|普通|國語|国语|Taiwan|台灣|台湾|Ting-Ting|Mei-Jia|Sin-ji/i.test(`${voice.name} ${voice.lang}`)) ||
-            voices.find((voice) => /^zh/i.test(voice.lang) && !/^(zh-HK|yue)/i.test(voice.lang)) ||
-            voices.find((voice) => /^zh/i.test(voice.lang)) ||
+            voices.find((voice) => /^(zh-CN|cmn|zh-Hans)/i.test(voice.lang) && !isCantoneseVoiceCandidate(voice)) ||
+            voices.find((voice) => isMandarinVoiceCandidate(voice)) ||
             null
           );
         }
@@ -567,13 +584,9 @@
 
       function isExpectedSpeechVoice(voice) {
         if (state.speechMode === "mandarin") {
-          return Boolean(
-            voice && (/^(zh-TW|zh-CN|zh-SG|zh-Hans|cmn)/i.test(voice.lang) || /Mandarin|普通|國語|国语|Taiwan|台灣|台湾/i.test(voice.name))
-          );
+          return isMandarinVoiceCandidate(voice);
         }
-        return Boolean(
-          voice && (/^(zh-HK|yue)/i.test(voice.lang) || /Cantonese|Hong Kong|粵|廣東/i.test(voice.name))
-        );
+        return isCantoneseVoiceCandidate(voice);
       }
 
       function speakText(text, rate = 0.9, pitch = 1.08) {
@@ -582,11 +595,12 @@
         }
         const voice = selectedSpeechVoice();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = voice?.lang || (state.speechMode === "mandarin" ? "zh-TW" : "zh-HK");
+        utterance.lang = speechLanguageCode();
         utterance.rate = rate;
         utterance.pitch = pitch;
         if (voice) {
           utterance.voice = voice;
+          utterance.lang = voice.lang || utterance.lang;
         }
 
         window.speechSynthesis.cancel();
@@ -1074,6 +1088,7 @@
           azureImageLoaded: useAzurePngAssets && sceneImages[state.sceneIndex].complete && sceneImages[state.sceneIndex].naturalWidth > 0,
           speechSupported: speechSupported(),
           speechVoice: selectedSpeechVoice()?.name || "",
+          speechLang: selectedSpeechVoice()?.lang || speechLanguageCode(),
           lastAction: state.lastAction,
           controls: ["click card", "click helper", "click next button", "click known button", "click try-again button", "click speak button", "click speech mode button", "click scene button", "click level button", "click order button", "click review button", "Space", "F fullscreen"],
         });
