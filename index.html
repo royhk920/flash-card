@@ -218,7 +218,7 @@
     <main>
       <section class="shell" aria-label="繁體中文字卡遊戲">
         <h1>小小中文字卡</h1>
-        <p class="intro">看一看，大聲念出來。按「讀廣東話」或「讀普通話」可以讀出字音。</p>
+        <p id="introText" class="intro">看一看，大聲念出來。按「讀廣東話」或「讀普通話」可以讀出字音。</p>
         <canvas id="game" width="960" height="720" aria-label="中文字卡畫面"></canvas>
         <div class="controls">
           <button id="tryAgainBtn" type="button">未識，再試</button>
@@ -231,7 +231,7 @@
           <button id="orderBtn" type="button">排序：隨機</button>
           <button id="reviewBtn" type="button">重溫未認得</button>
         </div>
-        <p class="hint">撳「我認得這個字」會有鼓勵音樂；撳「未識，再試」會聽到打氣說話。按空白鍵換字，按 F 可切換全螢幕。</p>
+        <p id="hintText" class="hint">撳「我認得這個字」會有鼓勵音樂；撳「未識，再試」會聽到打氣說話。按空白鍵換字，按 F 可切換全螢幕。</p>
       </section>
     </main>
 
@@ -252,6 +252,8 @@
       const tryAgainBtn = document.getElementById("tryAgainBtn");
       const speakBtn = document.getElementById("speakBtn");
       const speechModeBtn = document.getElementById("speechModeBtn");
+      const introText = document.getElementById("introText");
+      const hintText = document.getElementById("hintText");
       const sceneBtn = document.getElementById("sceneBtn");
       const levelBtn = document.getElementById("levelBtn");
       const orderBtn = document.getElementById("orderBtn");
@@ -405,8 +407,8 @@
         if (state.reviewMode) {
           if (activeCards().length === 0) {
             state.reviewMode = false;
-            rebuildDeck("全部認得", currentCard());
-            state.helperMessage = "全部字都認得啦，回到全部字卡。";
+            rebuildDeck(modeText("全部認得", "全部認得"), currentCard());
+            state.helperMessage = modeText("全部字都認得啦，返去全部字卡。", "全部字都認得了，回到全部字卡。");
             render();
             return;
           }
@@ -428,6 +430,10 @@
           return `真棒！你認得「${card}」！`;
         }
         return `叻叻！你識讀「${card}」！`;
+      }
+
+      function modeText(cantonese, mandarin) {
+        return state.speechMode === "mandarin" ? mandarin : cantonese;
       }
 
       function tryAgainPrompt(card) {
@@ -458,7 +464,7 @@
         state.tryAgainCount += 1;
         state.helperBounce += Math.PI / 2.2;
         state.soundPulse = 1;
-        state.lastAction = "未識，再試";
+        state.lastAction = modeText("未識，再試", "不會，再試");
         state.helperMessage = prompt;
         launchCelebration(728, 320, "helper");
         speakEncouragement(prompt);
@@ -501,23 +507,22 @@
       function nextScene() {
         state.correctStreak = 0;
         state.sceneIndex = (state.sceneIndex + 1) % scenes.length;
-        state.helperMessage = `${scenes[state.sceneIndex].name} 來陪你讀。`;
-        state.lastAction = "換圖片";
+        state.helperMessage = modeText(`${scenes[state.sceneIndex].name} 嚟陪你讀。`, `${scenes[state.sceneIndex].name} 來陪你讀。`);
+        state.lastAction = modeText("換圖片", "換圖片");
         render();
       }
 
       function helperMessageForScene(scene) {
         const card = currentCard();
-        const replies = [
-          `${scene.name} 陪你讀：${card}`,
-          `大聲讀一次：${card}`,
-          `你會唸「${card}」嗎？`,
-        ];
+        const replies =
+          state.speechMode === "mandarin"
+            ? [`${scene.name} 陪你讀：${card}`, `大聲讀一次：${card}`, `你會讀「${card}」嗎？`]
+            : [`${scene.name} 陪你讀：${card}`, `大聲讀一次：${card}`, `你識唔識讀「${card}」呀？`];
         return replies[state.helperTaps % replies.length];
       }
 
       function defaultHelperMessage() {
-        return `${scenes[state.sceneIndex].name} 看看這個字：${currentCard()}`;
+        return modeText(`${scenes[state.sceneIndex].name} 睇吓呢個字：${currentCard()}`, `${scenes[state.sceneIndex].name} 看看這個字：${currentCard()}`);
       }
 
       function tapHelper() {
@@ -596,8 +601,8 @@
 
       function speakCurrentCard() {
         if (!speechSupported()) {
-          state.helperMessage = "這個瀏覽器未支援免費讀音。";
-          state.lastAction = "未支援讀音";
+          state.helperMessage = modeText("呢個瀏覽器未支援讀音。", "這個瀏覽器不支援讀音。");
+          state.lastAction = modeText("未支援讀音", "不支援讀音");
           render();
           return;
         }
@@ -610,7 +615,10 @@
           state.helperMessage = `正在讀${speechModeLabel()}：${card}`;
           state.lastAction = `${speechModeLabel()}讀音`;
         } else {
-          state.helperMessage = `未找到${speechModeLabel()}聲線，用中文聲讀：${card}`;
+          state.helperMessage = modeText(
+            `未搵到${speechModeLabel()}聲線，用中文聲讀：${card}`,
+            `沒有找到${speechModeLabel()}聲音，用中文聲音讀：${card}`
+          );
           state.lastAction = "中文讀音";
         }
         render();
@@ -618,7 +626,7 @@
 
       function toggleSpeechMode() {
         state.speechMode = state.speechMode === "cantonese" ? "mandarin" : "cantonese";
-        state.helperMessage = `已切換至${speechModeLabel()}讀音。`;
+        state.helperMessage = modeText(`已切換到${speechModeLabel()}讀音。`, `已切換到${speechModeLabel()}讀音。`);
         state.lastAction = `切換${speechModeLabel()}`;
         render();
       }
@@ -665,9 +673,9 @@
         state.levelMode = modes[nextIndex];
         if (state.reviewMode && activeCards().length === 0) {
           state.reviewMode = false;
-          state.helperMessage = `${levelLabel()}字卡已全部認得，返回正常練習。`;
+          state.helperMessage = modeText(`${levelLabel()}字卡已經全部認得，返去正常練習。`, `${levelLabel()}字卡已經全部認得，回到正常練習。`);
         } else {
-          state.helperMessage = `切到${levelLabel()}字卡。`;
+          state.helperMessage = modeText(`切到${levelLabel()}字卡。`, `切換到${levelLabel()}字卡。`);
         }
         rebuildDeck(`切到${levelLabel()}`, currentCard());
         render();
@@ -676,14 +684,16 @@
       function toggleReviewMode() {
         const turningOn = !state.reviewMode;
         if (turningOn && activeCards().length === 0) {
-          state.helperMessage = `${levelLabel()}字卡全部認得啦，先正常練習。`;
-          state.lastAction = "重溫完成";
+          state.helperMessage = modeText(`${levelLabel()}字卡全部認得啦，先正常練習。`, `${levelLabel()}字卡都認得了，先正常練習。`);
+          state.lastAction = modeText("重溫完成", "複習完成");
           render();
           return;
         }
         state.reviewMode = turningOn;
-        rebuildDeck(turningOn ? "重溫未認得" : "返回全部字卡", currentCard());
-        state.helperMessage = turningOn ? "未認得的字，慢慢再讀。" : "回到全部字卡。";
+        rebuildDeck(turningOn ? modeText("重溫未認得", "複習未認得") : "返回全部字卡", currentCard());
+        state.helperMessage = turningOn
+          ? modeText("未認得嘅字，慢慢再讀。", "還沒認得的字，慢慢再讀。")
+          : modeText("返去全部字卡。", "回到全部字卡。");
         render();
       }
 
@@ -906,9 +916,18 @@
         drawCardFace();
         drawSceneImage();
 
+        introText.textContent = modeText(
+          "看一看，大聲念出來。按「讀廣東話」或「讀普通話」可以讀出字音。",
+          "看一看，大聲讀出來。按「讀普通話」或「讀廣東話」可以讀出字音。"
+        );
+        hintText.textContent = modeText(
+          "撳「我認得這個字」會有鼓勵音樂；撳「未識，再試」會聽到打氣說話。按空白鍵換字，按 F 可切換全螢幕。",
+          "按「我認得這個字」會有鼓勵音樂；按「不會，再試」會聽到鼓勵說話。按空白鍵換字，按 F 可切換全螢幕。"
+        );
+        tryAgainBtn.textContent = modeText("未識，再試", "不會，再試");
         orderBtn.textContent = `排序：${state.orderMode === "random" ? "隨機" : "順序"}`;
         levelBtn.textContent = `程度：${levelLabel()}`;
-        reviewBtn.textContent = state.reviewMode ? "返回全部字卡" : "重溫未認得";
+        reviewBtn.textContent = state.reviewMode ? modeText("返回全部字卡", "返回全部字卡") : modeText("重溫未認得", "複習未認得");
         speakBtn.disabled = !speechSupported();
         speakBtn.textContent = speechSupported() ? `讀${speechModeLabel()}` : "未支援讀音";
         speechModeBtn.disabled = !speechSupported();
