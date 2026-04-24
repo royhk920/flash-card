@@ -9,6 +9,14 @@
         box-sizing: border-box;
       }
 
+      @font-face {
+        font-family: "FlashcardKai";
+        src: url("assets/fonts/lxgw-wenkai-tc-flashcards.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 700;
+        font-display: block;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
@@ -260,6 +268,7 @@
       const reviewBtn = document.getElementById("reviewBtn");
       const helperPanel = { x: 584, y: 136, width: 288, height: 404 };
       const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const flashcardFontStack = "'FlashcardKai', 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
 
       const scenes = [
         {
@@ -758,7 +767,7 @@
 
         drawRoundedRect(-78, 0, 156, 98, 18, "#fffdf5", "#2b2318");
         ctx.fillStyle = dark;
-        ctx.font = "bold 54px 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.font = `bold 54px ${flashcardFontStack}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(currentCard(), 0, 50);
@@ -888,7 +897,7 @@
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(43, 35, 24, 0.18)";
-        ctx.font = "bold 310px 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.font = `bold 310px ${flashcardFontStack}`;
         ctx.fillText(currentCard(), 8, 10);
         ctx.fillStyle = "#2b2318";
         ctx.fillText(currentCard(), 0, -1);
@@ -975,6 +984,13 @@
         canvas.width = 960;
         canvas.height = 720;
         render();
+      }
+
+      function loadFlashcardFont() {
+        if (!document.fonts?.load) {
+          return;
+        }
+        document.fonts.load('700 310px "FlashcardKai"').then(render).catch(() => {});
       }
 
       function toggleFullscreen() {
@@ -1094,6 +1110,7 @@
         });
 
       resizeCanvas();
+      loadFlashcardFont();
       if (!prefersReducedMotion) {
         requestAnimationFrame(animationLoop);
       }
