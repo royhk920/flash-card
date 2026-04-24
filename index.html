@@ -218,13 +218,14 @@
     <main>
       <section class="shell" aria-label="繁體中文字卡遊戲">
         <h1>小小中文字卡</h1>
-        <p class="intro">看一看，大聲念出來。按「讀廣東話」可以讀出字音。</p>
+        <p class="intro">看一看，大聲念出來。按「讀廣東話」或「讀普通話」可以讀出字音。</p>
         <canvas id="game" width="960" height="720" aria-label="中文字卡畫面"></canvas>
         <div class="controls">
           <button id="tryAgainBtn" type="button">未識，再試</button>
           <button id="knownBtn" type="button">我認得這個字</button>
           <button id="nextBtn" type="button">下一張卡</button>
           <button id="speakBtn" type="button">讀廣東話</button>
+          <button id="speechModeBtn" type="button">讀音：廣東話</button>
           <button id="sceneBtn" type="button">換有趣圖片</button>
           <button id="levelBtn" type="button">程度：基礎</button>
           <button id="orderBtn" type="button">排序：隨機</button>
@@ -250,6 +251,7 @@
       const knownBtn = document.getElementById("knownBtn");
       const tryAgainBtn = document.getElementById("tryAgainBtn");
       const speakBtn = document.getElementById("speakBtn");
+      const speechModeBtn = document.getElementById("speechModeBtn");
       const sceneBtn = document.getElementById("sceneBtn");
       const levelBtn = document.getElementById("levelBtn");
       const orderBtn = document.getElementById("orderBtn");
@@ -309,6 +311,7 @@
         soundPulse: 0,
         correctStreak: 0,
         tryAgainCount: 0,
+        speechMode: "cantonese",
         levelMode: "basic",
         orderMode: "random",
         reviewMode: false,
@@ -416,12 +419,28 @@
 
       function correctEncouragement(card) {
         if (state.correctStreak > 0 && state.correctStreak % 3 === 0) {
+          if (state.speechMode === "mandarin") {
+            return `做得很好！連續認得 ${state.correctStreak} 個字！`;
+          }
           return `做得好！連續識讀 ${state.correctStreak} 個字！`;
+        }
+        if (state.speechMode === "mandarin") {
+          return `真棒！你認得「${card}」！`;
         }
         return `叻叻！你識讀「${card}」！`;
       }
 
       function tryAgainPrompt(card) {
+        if (state.speechMode === "mandarin") {
+          const prompts = [
+            `沒關係，請跟我讀一次「${card}」，這個字讀作「${card}」。`,
+            `沒問題，慢慢來。請跟我讀「${card}」，這個字讀作「${card}」。`,
+            `再試一次，一起讀「${card}」。這個字讀作「${card}」。`,
+            `很接近了，聽清楚一次：「${card}」。請跟我讀「${card}」。`,
+            `你可以的，先聽我讀：「${card}」。這個字讀作「${card}」。`,
+          ];
+          return prompts[state.tryAgainCount % prompts.length];
+        }
         const prompts = [
           `唔緊要，請跟我讀一次「${card}」，呢個字讀音係「${card}」。`,
           `冇問題，慢慢嚟。請跟我讀「${card}」，呢個字讀音係「${card}」。`,
@@ -515,11 +534,24 @@
         return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
       }
 
-      function selectedSpeechVoice() {
+      function speechModeLabel() {
+        return state.speechMode === "mandarin" ? "普通話" : "廣東話";
+      }
+
+      function selectedSpeechVoice(mode = state.speechMode) {
         if (!speechSupported()) {
           return null;
         }
         const voices = window.speechSynthesis.getVoices();
+        if (mode === "mandarin") {
+          return (
+            voices.find((voice) => /^(zh-TW|zh-CN|zh-SG|zh-Hans|cmn)/i.test(voice.lang)) ||
+            voices.find((voice) => /Mandarin|普通|國語|国语|Taiwan|台灣|台湾|Ting-Ting|Mei-Jia|Sin-ji/i.test(`${voice.name} ${voice.lang}`)) ||
+            voices.find((voice) => /^zh/i.test(voice.lang) && !/^(zh-HK|yue)/i.test(voice.lang)) ||
+            voices.find((voice) => /^zh/i.test(voice.lang)) ||
+            null
+          );
+        }
         return (
           voices.find((voice) => /^(zh-HK|yue)/i.test(voice.lang)) ||
           voices.find((voice) => /Cantonese|Hong Kong|粵|廣東|HiuMaan|WanLung/i.test(`${voice.name} ${voice.lang}`)) ||
@@ -528,7 +560,12 @@
         );
       }
 
-      function isCantoneseVoice(voice) {
+      function isExpectedSpeechVoice(voice) {
+        if (state.speechMode === "mandarin") {
+          return Boolean(
+            voice && (/^(zh-TW|zh-CN|zh-SG|zh-Hans|cmn)/i.test(voice.lang) || /Mandarin|普通|國語|国语|Taiwan|台灣|台湾/i.test(voice.name))
+          );
+        }
         return Boolean(
           voice && (/^(zh-HK|yue)/i.test(voice.lang) || /Cantonese|Hong Kong|粵|廣東/i.test(voice.name))
         );
@@ -540,7 +577,7 @@
         }
         const voice = selectedSpeechVoice();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = voice?.lang || "zh-HK";
+        utterance.lang = voice?.lang || (state.speechMode === "mandarin" ? "zh-TW" : "zh-HK");
         utterance.rate = rate;
         utterance.pitch = pitch;
         if (voice) {
@@ -569,13 +606,20 @@
         state.readCount += 1;
         const voice = speakText(card, 0.78, 1.05);
 
-        if (isCantoneseVoice(voice)) {
-          state.helperMessage = `正在讀廣東話：${card}`;
-          state.lastAction = "廣東話讀音";
+        if (isExpectedSpeechVoice(voice)) {
+          state.helperMessage = `正在讀${speechModeLabel()}：${card}`;
+          state.lastAction = `${speechModeLabel()}讀音`;
         } else {
-          state.helperMessage = `未找到廣東話聲線，用中文聲讀：${card}`;
+          state.helperMessage = `未找到${speechModeLabel()}聲線，用中文聲讀：${card}`;
           state.lastAction = "中文讀音";
         }
+        render();
+      }
+
+      function toggleSpeechMode() {
+        state.speechMode = state.speechMode === "cantonese" ? "mandarin" : "cantonese";
+        state.helperMessage = `已切換至${speechModeLabel()}讀音。`;
+        state.lastAction = `切換${speechModeLabel()}`;
         render();
       }
 
@@ -690,7 +734,7 @@
 
         drawRoundedRect(-78, 0, 156, 98, 18, "#fffdf5", "#2b2318");
         ctx.fillStyle = dark;
-        ctx.font = "bold 54px 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.font = "bold 54px 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(currentCard(), 0, 50);
@@ -820,7 +864,7 @@
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "rgba(43, 35, 24, 0.18)";
-        ctx.font = "bold 310px 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.font = "bold 310px 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
         ctx.fillText(currentCard(), 8, 10);
         ctx.fillStyle = "#2b2318";
         ctx.fillText(currentCard(), 0, -1);
@@ -866,7 +910,9 @@
         levelBtn.textContent = `程度：${levelLabel()}`;
         reviewBtn.textContent = state.reviewMode ? "返回全部字卡" : "重溫未認得";
         speakBtn.disabled = !speechSupported();
-        speakBtn.textContent = speechSupported() ? "讀廣東話" : "未支援讀音";
+        speakBtn.textContent = speechSupported() ? `讀${speechModeLabel()}` : "未支援讀音";
+        speechModeBtn.disabled = !speechSupported();
+        speechModeBtn.textContent = speechSupported() ? `讀音：${speechModeLabel()}` : "未支援讀音切換";
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -938,6 +984,7 @@
       knownBtn.addEventListener("click", markKnown);
       tryAgainBtn.addEventListener("click", tryAgainCurrentCard);
       speakBtn.addEventListener("click", speakCurrentCard);
+      speechModeBtn.addEventListener("click", toggleSpeechMode);
       sceneBtn.addEventListener("click", nextScene);
       levelBtn.addEventListener("click", toggleLevelMode);
       orderBtn.addEventListener("click", toggleOrderMode);
@@ -995,6 +1042,7 @@
           knownCount: state.known,
           correctStreak: state.correctStreak,
           tryAgainCount: state.tryAgainCount,
+          speechMode: state.speechMode,
           scene: scenes[state.sceneIndex].name,
           helperMessage: state.helperMessage,
           helperTaps: state.helperTaps,
@@ -1008,7 +1056,7 @@
           speechSupported: speechSupported(),
           speechVoice: selectedSpeechVoice()?.name || "",
           lastAction: state.lastAction,
-          controls: ["click card", "click helper", "click next button", "click known button", "click try-again button", "click speak button", "click scene button", "click level button", "click order button", "click review button", "Space", "F fullscreen"],
+          controls: ["click card", "click helper", "click next button", "click known button", "click try-again button", "click speak button", "click speech mode button", "click scene button", "click level button", "click order button", "click review button", "Space", "F fullscreen"],
         });
 
       resizeCanvas();
