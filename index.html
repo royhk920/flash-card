@@ -269,6 +269,8 @@
       const helperPanel = { x: 584, y: 136, width: 288, height: 404 };
       const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const flashcardFontStack = "'FlashcardKai', 'BiauKai', 'DFKai-SB', 'KaiTi', 'Kaiti TC', 'STKaiti', 'Noto Serif TC', 'PMingLiU', serif";
+      const mandarinCardAudio = "Audio" in window ? new Audio() : null;
+      let mandarinAudioPlayId = 0;
 
       const scenes = [
         {
@@ -548,12 +550,71 @@
         return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
       }
 
+      function audioSupported() {
+        return Boolean(mandarinCardAudio);
+      }
+
+      function canSpeakCurrentMode() {
+        if (state.speechMode === "mandarin") {
+          return audioSupported() || speechSupported();
+        }
+        return speechSupported();
+      }
+
       function speechModeLabel() {
         return state.speechMode === "mandarin" ? "普通話" : "廣東話";
       }
 
       function speechLanguageCode() {
         return state.speechMode === "mandarin" ? "zh-CN" : "zh-HK";
+      }
+
+      function mandarinAudioPath(card) {
+        const filename = Array.from(card)
+          .map((char) => `u${char.codePointAt(0).toString(16).padStart(4, "0")}`)
+          .join("-");
+        return `assets/tts/mandarin/${filename}.mp3`;
+      }
+
+      function stopMandarinAudio() {
+        mandarinAudioPlayId += 1;
+        if (!mandarinCardAudio) {
+          return;
+        }
+        mandarinCardAudio.pause();
+        mandarinCardAudio.currentTime = 0;
+      }
+
+      function playMandarinCardAudio(card) {
+        if (!audioSupported()) {
+          return false;
+        }
+        const playId = (mandarinAudioPlayId += 1);
+        let fallbackUsed = false;
+        const fallbackToSpeech = () => {
+          if (fallbackUsed || playId !== mandarinAudioPlayId || state.speechMode !== "mandarin") {
+            return;
+          }
+          fallbackUsed = true;
+          const voice = speakText(card, 0.78, 1.05);
+          state.helperMessage = voice
+            ? `本地普通話音訊未能播放，改用瀏覽器讀：${card}`
+            : `本地普通話音訊未能播放：${card}`;
+          state.lastAction = "普通話後備讀音";
+          render();
+        };
+
+        mandarinCardAudio.pause();
+        mandarinCardAudio.src = mandarinAudioPath(card);
+        mandarinCardAudio.currentTime = 0;
+        mandarinCardAudio.onerror = fallbackToSpeech;
+
+        const playPromise = mandarinCardAudio.play();
+        if (playPromise?.catch) {
+          playPromise.catch(fallbackToSpeech);
+        }
+        state.soundPulse = 1;
+        return true;
       }
 
       function isCantoneseVoiceCandidate(voice) {
@@ -602,6 +663,7 @@
         if (!speechSupported()) {
           return null;
         }
+        stopMandarinAudio();
         const voice = selectedSpeechVoice();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = speechLanguageCode();
@@ -623,6 +685,15 @@
       }
 
       function speakCurrentCard() {
+        const card = currentCard();
+        if (state.speechMode === "mandarin" && playMandarinCardAudio(card)) {
+          state.readCount += 1;
+          state.helperMessage = `正在讀${speechModeLabel()}：${card}`;
+          state.lastAction = `${speechModeLabel()}讀音`;
+          render();
+          return;
+        }
+
         if (!speechSupported()) {
           state.helperMessage = modeText("呢個瀏覽器未支援讀音。", "這個瀏覽器不支援讀音。");
           state.lastAction = modeText("未支援讀音", "不支援讀音");
@@ -630,7 +701,6 @@
           return;
         }
 
-        const card = currentCard();
         state.readCount += 1;
         const voice = speakText(card, 0.78, 1.05);
 
@@ -951,10 +1021,10 @@
         orderBtn.textContent = `排序：${state.orderMode === "random" ? "隨機" : "順序"}`;
         levelBtn.textContent = `程度：${levelLabel()}`;
         reviewBtn.textContent = state.reviewMode ? modeText("返回全部字卡", "返回全部字卡") : modeText("重溫未認得", "複習未認得");
-        speakBtn.disabled = !speechSupported();
-        speakBtn.textContent = speechSupported() ? `讀${speechModeLabel()}` : "未支援讀音";
-        speechModeBtn.disabled = !speechSupported();
-        speechModeBtn.textContent = speechSupported() ? `讀音：${speechModeLabel()}` : "未支援讀音切換";
+        speakBtn.disabled = !canSpeakCurrentMode();
+        speakBtn.textContent = canSpeakCurrentMode() ? `讀${speechModeLabel()}` : "未支援讀音";
+        speechModeBtn.disabled = !audioSupported() && !speechSupported();
+        speechModeBtn.textContent = audioSupported() || speechSupported() ? `讀音：${speechModeLabel()}` : "未支援讀音切換";
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -1103,6 +1173,8 @@
           },
           azureImageLoaded: useAzurePngAssets && sceneImages[state.sceneIndex].complete && sceneImages[state.sceneIndex].naturalWidth > 0,
           speechSupported: speechSupported(),
+          audioSupported: audioSupported(),
+          mandarinAudio: mandarinAudioPath(currentCard()),
           speechVoice: selectedSpeechVoice()?.name || "",
           speechLang: selectedSpeechVoice()?.lang || speechLanguageCode(),
           lastAction: state.lastAction,
