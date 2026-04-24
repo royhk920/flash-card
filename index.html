@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>繁體中文字卡遊戲</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 15% 18%, rgba(255, 214, 102, 0.45), transparent 24rem),
+          radial-gradient(circle at 85% 20%, rgba(108, 196, 161, 0.38), transparent 20rem),
+          linear-gradient(135deg, #fff7df 0%, #f5fbff 48%, #ffeef7 100%);
+        background-size: 140% 140%;
+        color: #2b2318;
+        font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        animation: floatBackground 14s ease-in-out infinite alternate;
+        overflow-x: hidden;
+      }
+
+      body::before,
+      body::after {
+        position: fixed;
+        content: "";
+        z-index: -1;
+        width: 18rem;
+        aspect-ratio: 1;
+        border: 3px solid rgba(43, 35, 24, 0.12);
+        border-radius: 44% 56% 62% 38%;
+        background: rgba(255, 255, 255, 0.34);
+        filter: blur(0.2px);
+        animation: blobFloat 9s ease-in-out infinite;
+      }
+
+      body::before {
+        left: -7rem;
+        top: 8vh;
+      }
+
+      body::after {
+        right: -6rem;
+        bottom: 5vh;
+        animation-delay: -4s;
+      }
+
+      main {
+        width: min(94vw, 760px);
+        padding: 20px;
+      }
+
+      .shell {
+        border: 3px solid #2b2318;
+        border-radius: 34px;
+        padding: clamp(16px, 4vw, 28px);
+        background: rgba(255, 255, 255, 0.86);
+        box-shadow: 0 22px 0 #2b2318, 0 28px 42px rgba(63, 45, 21, 0.18);
+        animation: shellPop 520ms cubic-bezier(0.2, 1.4, 0.35, 1) both;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.7rem, 5vw, 2.9rem);
+        letter-spacing: 0.04em;
+        text-shadow: 0 3px 0 rgba(255, 203, 61, 0.42);
+      }
+
+      .intro {
+        margin: 0 0 18px;
+        color: #685946;
+        font-size: clamp(1rem, 3vw, 1.15rem);
+        line-height: 1.6;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        border: 3px solid #2b2318;
+        border-radius: 28px;
+        background: #fff3c9;
+        cursor: pointer;
+        touch-action: manipulation;
+        transition: transform 180ms ease, box-shadow 180ms ease;
+      }
+
+      canvas:hover {
+        box-shadow: 0 10px 0 rgba(43, 35, 24, 0.16);
+        transform: translateY(-2px) rotate(-0.2deg);
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      button {
+        border: 3px solid #2b2318;
+        border-radius: 20px;
+        padding: 15px 18px;
+        background: #ffcb3d;
+        color: #2b2318;
+        font: inherit;
+        font-weight: 800;
+        font-size: 1.08rem;
+        box-shadow: 0 7px 0 #2b2318;
+        cursor: pointer;
+        transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        filter: saturate(1.12) brightness(1.04);
+        transform: translateY(-2px) rotate(-0.35deg);
+        box-shadow: 0 9px 0 #2b2318;
+      }
+
+      button:active {
+        transform: translateY(5px);
+        box-shadow: 0 2px 0 #2b2318;
+      }
+
+      button:disabled {
+        opacity: 0.56;
+        cursor: not-allowed;
+      }
+
+      #knownBtn {
+        background: #8ee3bd;
+      }
+
+      #tryAgainBtn {
+        background: #ffb56b;
+      }
+
+      #speakBtn {
+        background: #b7d8ff;
+      }
+
+      #levelBtn {
+        background: #ffb3d1;
+      }
+
+      .hint {
+        margin: 16px 4px 0;
+        color: #685946;
+        font-size: 0.98rem;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 560px) {
+        main {
+          padding: 12px;
+        }
+
+        .shell {
+          border-radius: 24px;
+          box-shadow: 0 12px 0 #2b2318, 0 18px 28px rgba(63, 45, 21, 0.16);
+        }
+
+        .controls {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @keyframes floatBackground {
+        from {
+          background-position: 0% 20%;
+        }
+
+        to {
+          background-position: 100% 80%;
+        }
+      }
+
+      @keyframes blobFloat {
+        0%, 100% {
+          transform: translateY(0) rotate(0deg) scale(1);
+        }
+
+        50% {
+          transform: translateY(-26px) rotate(9deg) scale(1.08);
+        }
+      }
+
+      @keyframes shellPop {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.96);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell" aria-label="繁體中文字卡遊戲">
+        <h1>小小中文字卡</h1>
+        <p class="intro">看一看，大聲念出來。按「讀廣東話」可以讀出字音。</p>
+        <canvas id="game" width="960" height="720" aria-label="中文字卡畫面"></canvas>
+        <div class="controls">
+          <button id="tryAgainBtn" type="button">未識，再試</button>
+          <button id="knownBtn" type="button">我認得這個字</button>
+          <button id="nextBtn" type="button">下一張卡</button>
+          <button id="speakBtn" type="button">讀廣東話</button>
+          <button id="sceneBtn" type="button">換有趣圖片</button>
+          <button id="levelBtn" type="button">程度：基礎</button>
+          <button id="orderBtn" type="button">排序：隨機</button>
+          <button id="reviewBtn" type="button">重溫未認得</button>
+        </div>
+        <p class="hint">撳「我認得這個字」會有鼓勵音樂；撳「未識，再試」會聽到打氣說話。按空白鍵換字，按 F 可切換全螢幕。</p>
+      </section>
+    </main>
+
+    <script>
+      const basicCardSource =
+        "天地日月山水火木金土風雨雲雪花草樹林鳥魚牛羊馬狗貓兔雞鴨鵝蟲蜂蝶人你我他她爸媽哥哥姐姐弟妹爺奶家門窗桌椅床書筆紙車船飛機路橋學校老師朋友手足眼耳口鼻心頭衣鞋帽飯麵茶湯果菜蛋肉甜酸苦辣紅橙黃綠藍紫黑白大小多少高矮長短胖瘦新舊快慢早晚上下左右前後裡外東西南北春夏秋冬一二三四五六七八九十百千笑哭跑走跳坐站看聽說唱讀寫畫玩吃喝睡醒洗刷抱拍拍球歌舞故事星光海河田園城村店市公園醫院警察消防節生日快樂平安健康勇敢禮貌謝請對不起沒關係愛夢希望分享輪流安靜專心合作完成開始結束";
+
+      const advancedCardSource =
+        "國廣語數科英體音美電腦網頁程式資料訊圖像影視聞報雜誌館博物劇場餐廳商銀行郵局器工具材品活動練習問題答案原因方法計劃目標選擇決定比較觀記錄整理類析想創造發明設建築環境自然植昆洋森宇宙太陽亮溫度濕向距離速重量形狀顏色聲味道氣感覺情緒興奮緊張驚喜失慰鼓勵尊責任規則秩序全危險保護約污染回收能源交通旅遊鐵巴士的碼港航登照址話息知邀參加歷史文化社區政府律療技實驗研究證據討論辯閱經濟貨幣貿易企業職管領導團隊策展";
+
+      const basicCards = Array.from(new Set(Array.from(basicCardSource)));
+      const advancedCards = Array.from(new Set(Array.from(advancedCardSource)));
+      const cards = Array.from(new Set([...basicCards, ...advancedCards]));
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const nextBtn = document.getElementById("nextBtn");
+      const knownBtn = document.getElementById("knownBtn");
+      const tryAgainBtn = document.getElementById("tryAgainBtn");
+      const speakBtn = document.getElementById("speakBtn");
+      const sceneBtn = document.getElementById("sceneBtn");
+      const levelBtn = document.getElementById("levelBtn");
+      const orderBtn = document.getElementById("orderBtn");
+      const reviewBtn = document.getElementById("reviewBtn");
+      const helperPanel = { x: 584, y: 136, width: 288, height: 404 };
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const scenes = [
+        {
+          name: "小龍老師",
+          subtitle: "一起讀字卡",
+          file: "assets/dragon-reader.png",
+          fallback: "assets/dragon-reader.svg",
+          colors: ["#7bd389", "#286f45", "#ffcb3d"],
+          prompt: "A cheerful original cartoon dragon reading a Traditional Chinese flashcard, playful classroom, bright warm colors, child friendly, thick outlines, rounded shapes, no text, square composition",
+        },
+        {
+          name: "熊貓同學",
+          subtitle: "陪你認字",
+          file: "assets/red-panda-helper.png",
+          fallback: "assets/red-panda-helper.svg",
+          colors: ["#ff9f68", "#7b3f2f", "#fff1d6"],
+          prompt: "Original child-friendly cartoon mascot: a round smiling red panda holding a blank flashcard, bright playful learning game art, thick clean outlines, soft pastel background, no words, no letters",
+        },
+        {
+          name: "月亮兔",
+          subtitle: "星星陪你讀",
+          file: "assets/moon-rabbit.png",
+          fallback: "assets/moon-rabbit.svg",
+          colors: ["#b7d8ff", "#4d6cb3", "#fff8c7"],
+          prompt: "A cute moon rabbit floating beside blank Chinese learning cards, whimsical pastel stars, kid-safe educational game illustration, thick outlines, no text",
+        },
+      ];
+
+      const useAzurePngAssets = true;
+      const sceneImages = scenes.map((scene) => {
+        const image = new Image();
+        image.src = useAzurePngAssets ? scene.file : scene.fallback;
+        image.addEventListener("load", render);
+        image.addEventListener("error", () => {
+          image.dataset.failed = "true";
+          render();
+        });
+        return image;
+      });
+
+      const state = {
+        index: 0,
+        known: 0,
+        sceneIndex: 0,
+        helperTaps: 0,
+        readCount: 0,
+        sparklePhase: 0,
+        helperBounce: 0,
+        helperMessage: "點小幫手，一起讀字卡。",
+        cardPop: 1,
+        soundPulse: 0,
+        correctStreak: 0,
+        tryAgainCount: 0,
+        levelMode: "basic",
+        orderMode: "random",
+        reviewMode: false,
+        lastAction: "開始",
+      };
+
+      const knownCards = new Set();
+      const celebrationParticles = [];
+      let audioContext;
+
+      function shuffledDeck(pool, avoidCard = "") {
+        const deck = pool.slice();
+        for (let i = deck.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+        if (avoidCard && deck.length > 1 && deck[0] === avoidCard) {
+          const swapIndex = deck.findIndex((card) => card !== avoidCard);
+          if (swapIndex > 0) {
+            [deck[0], deck[swapIndex]] = [deck[swapIndex], deck[0]];
+          }
+        }
+        return deck;
+      }
+
+      function levelCards() {
+        if (state.levelMode === "advanced") {
+          return advancedCards.slice();
+        }
+        if (state.levelMode === "all") {
+          return cards.slice();
+        }
+        return basicCards.slice();
+      }
+
+      function activeCards() {
+        const pool = levelCards();
+        if (!state.reviewMode) {
+          return pool;
+        }
+        return pool.filter((card) => !knownCards.has(card));
+      }
+
+      function buildDeck(avoidCard = "") {
+        const pool = activeCards();
+        if (state.orderMode === "sequential") {
+          return pool;
+        }
+        return shuffledDeck(pool, avoidCard);
+      }
+
+      let cardDeck = buildDeck();
+
+      function rebuildDeck(action, avoidCard = "") {
+        cardDeck = buildDeck(avoidCard);
+        state.index = 0;
+        state.lastAction = action;
+        state.cardPop = 1;
+      }
+
+      function currentCard() {
+        return cardDeck[state.index % cardDeck.length];
+      }
+
+      function nextCard(action = "下一張", helperMessage, preserveStreak = false) {
+        const previousCard = currentCard();
+        if (!preserveStreak) {
+          state.correctStreak = 0;
+        }
+        state.index += 1;
+        if (state.index >= cardDeck.length) {
+          state.index = 0;
+          cardDeck = buildDeck(previousCard);
+        }
+        state.lastAction = action;
+        state.helperMessage = helperMessage || defaultHelperMessage();
+        state.cardPop = 1;
+        render();
+      }
+
+      function markKnown() {
+        const knownCard = currentCard();
+        state.correctStreak += 1;
+        playEncouragementMelody();
+        launchCelebration(350, 325, "known");
+        const encouragement = correctEncouragement(knownCard);
+        state.helperMessage = encouragement;
+        speakEncouragement(encouragement);
+        knownCards.add(knownCard);
+        state.known = knownCards.size;
+        if (state.reviewMode) {
+          if (activeCards().length === 0) {
+            state.reviewMode = false;
+            rebuildDeck("全部認得", currentCard());
+            state.helperMessage = "全部字都認得啦，回到全部字卡。";
+            render();
+            return;
+          }
+          rebuildDeck("認得", currentCard());
+          render();
+          return;
+        }
+        nextCard("認得", encouragement, true);
+      }
+
+      function correctEncouragement(card) {
+        if (state.correctStreak > 0 && state.correctStreak % 3 === 0) {
+          return `做得好！連續識讀 ${state.correctStreak} 個字！`;
+        }
+        return `叻叻！你識讀「${card}」！`;
+      }
+
+      function tryAgainPrompt(card) {
+        const prompts = [
+          `唔緊要，請跟我讀一次「${card}」，呢個字讀音係「${card}」。`,
+          `冇問題，慢慢嚟。請跟我讀「${card}」，呢個字讀音係「${card}」。`,
+          `再試多次，一齊讀「${card}」。呢個字讀音係「${card}」。`,
+          `好接近喇，聽清楚一次：「${card}」。請跟我讀「${card}」。`,
+          `你可以嘅，先聽我讀：「${card}」。呢個字讀音係「${card}」。`,
+        ];
+        return prompts[state.tryAgainCount % prompts.length];
+      }
+
+      function tryAgainCurrentCard() {
+        const card = currentCard();
+        state.correctStreak = 0;
+        const prompt = tryAgainPrompt(card);
+        state.tryAgainCount += 1;
+        state.helperBounce += Math.PI / 2.2;
+        state.soundPulse = 1;
+        state.lastAction = "未識，再試";
+        state.helperMessage = prompt;
+        launchCelebration(728, 320, "helper");
+        speakEncouragement(prompt);
+        render();
+      }
+
+      function playEncouragementMelody() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return;
+        }
+
+        if (!audioContext) {
+          audioContext = new AudioContextClass();
+        }
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+
+        const now = audioContext.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((frequency, index) => {
+          const start = now + index * 0.11;
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+
+          oscillator.type = index === notes.length - 1 ? "triangle" : "sine";
+          oscillator.frequency.setValueAtTime(frequency, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.16, start + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+
+          oscillator.connect(gain);
+          gain.connect(audioContext.destination);
+          oscillator.start(start);
+          oscillator.stop(start + 0.18);
+        });
+      }
+
+      function nextScene() {
+        state.correctStreak = 0;
+        state.sceneIndex = (state.sceneIndex + 1) % scenes.length;
+        state.helperMessage = `${scenes[state.sceneIndex].name} 來陪你讀。`;
+        state.lastAction = "換圖片";
+        render();
+      }
+
+      function helperMessageForScene(scene) {
+        const card = currentCard();
+        const replies = [
+          `${scene.name} 陪你讀：${card}`,
+          `大聲讀一次：${card}`,
+          `你會唸「${card}」嗎？`,
+        ];
+        return replies[state.helperTaps % replies.length];
+      }
+
+      function defaultHelperMessage() {
+        return `${scenes[state.sceneIndex].name} 看看這個字：${currentCard()}`;
+      }
+
+      function tapHelper() {
+        const scene = scenes[state.sceneIndex];
+        state.helperTaps += 1;
+        state.helperBounce += Math.PI / 1.8;
+        state.helperMessage = helperMessageForScene(scene);
+        state.lastAction = "點小幫手";
+        launchCelebration(728, 320, "helper");
+        render();
+      }
+
+      function speechSupported() {
+        return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+      }
+
+      function selectedSpeechVoice() {
+        if (!speechSupported()) {
+          return null;
+        }
+        const voices = window.speechSynthesis.getVoices();
+        return (
+          voices.find((voice) => /^(zh-HK|yue)/i.test(voice.lang)) ||
+          voices.find((voice) => /Cantonese|Hong Kong|粵|廣東|HiuMaan|WanLung/i.test(`${voice.name} ${voice.lang}`)) ||
+          voices.find((voice) => /^zh/i.test(voice.lang)) ||
+          null
+        );
+      }
+
+      function isCantoneseVoice(voice) {
+        return Boolean(
+          voice && (/^(zh-HK|yue)/i.test(voice.lang) || /Cantonese|Hong Kong|粵|廣東/i.test(voice.name))
+        );
+      }
+
+      function speakText(text, rate = 0.9, pitch = 1.08) {
+        if (!speechSupported()) {
+          return null;
+        }
+        const voice = selectedSpeechVoice();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = voice?.lang || "zh-HK";
+        utterance.rate = rate;
+        utterance.pitch = pitch;
+        if (voice) {
+          utterance.voice = voice;
+        }
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        state.soundPulse = 1;
+        return voice;
+      }
+
+      function speakEncouragement(text) {
+        return speakText(text, 0.92, 1.12);
+      }
+
+      function speakCurrentCard() {
+        if (!speechSupported()) {
+          state.helperMessage = "這個瀏覽器未支援免費讀音。";
+          state.lastAction = "未支援讀音";
+          render();
+          return;
+        }
+
+        const card = currentCard();
+        state.readCount += 1;
+        const voice = speakText(card, 0.78, 1.05);
+
+        if (isCantoneseVoice(voice)) {
+          state.helperMessage = `正在讀廣東話：${card}`;
+          state.lastAction = "廣東話讀音";
+        } else {
+          state.helperMessage = `未找到廣東話聲線，用中文聲讀：${card}`;
+          state.lastAction = "中文讀音";
+        }
+        render();
+      }
+
+      function launchCelebration(x, y, type) {
+        const colors = type === "known" ? ["#ffcb3d", "#8ee3bd", "#ff8ab3", "#b7d8ff"] : ["#ffffff", "#ffcb3d", "#b7d8ff"];
+        const count = type === "known" ? 30 : 14;
+        for (let i = 0; i < count; i += 1) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 3 + Math.random() * (type === "known" ? 5 : 3);
+          celebrationParticles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 2,
+            life: 1,
+            size: 14 + Math.random() * 16,
+            spin: Math.random() * Math.PI,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            text: Math.random() > 0.45 ? "★" : "♥",
+          });
+        }
+      }
+
+      function toggleOrderMode() {
+        state.orderMode = state.orderMode === "random" ? "sequential" : "random";
+        rebuildDeck(state.orderMode === "random" ? "切到隨機" : "切到順序", currentCard());
+        render();
+      }
+
+      function levelLabel() {
+        if (state.levelMode === "advanced") {
+          return "進階";
+        }
+        if (state.levelMode === "all") {
+          return "全部";
+        }
+        return "基礎";
+      }
+
+      function toggleLevelMode() {
+        const modes = ["basic", "advanced", "all"];
+        const nextIndex = (modes.indexOf(state.levelMode) + 1) % modes.length;
+        state.levelMode = modes[nextIndex];
+        if (state.reviewMode && activeCards().length === 0) {
+          state.reviewMode = false;
+          state.helperMessage = `${levelLabel()}字卡已全部認得，返回正常練習。`;
+        } else {
+          state.helperMessage = `切到${levelLabel()}字卡。`;
+        }
+        rebuildDeck(`切到${levelLabel()}`, currentCard());
+        render();
+      }
+
+      function toggleReviewMode() {
+        const turningOn = !state.reviewMode;
+        if (turningOn && activeCards().length === 0) {
+          state.helperMessage = `${levelLabel()}字卡全部認得啦，先正常練習。`;
+          state.lastAction = "重溫完成";
+          render();
+          return;
+        }
+        state.reviewMode = turningOn;
+        rebuildDeck(turningOn ? "重溫未認得" : "返回全部字卡", currentCard());
+        state.helperMessage = turningOn ? "未認得的字，慢慢再讀。" : "回到全部字卡。";
+        render();
+      }
+
+      function drawRoundedRect(x, y, width, height, radius, fill, stroke) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, radius);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+      }
+
+      function drawFallbackMascot(scene, x, y, size) {
+        const [main, dark, accent] = scene.colors;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = main;
+        ctx.strokeStyle = "#2b2318";
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.ellipse(0, 18, size * 0.38, size * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = main;
+        ctx.beginPath();
+        ctx.arc(0, -62, size * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.arc(-58, -88, 28, 0, Math.PI * 2);
+        ctx.arc(58, -88, 28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.arc(-32, -68, 8, 0, Math.PI * 2);
+        ctx.arc(32, -68, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(0, -48, 30, 0.18, Math.PI - 0.18);
+        ctx.stroke();
+
+        drawRoundedRect(-78, 0, 156, 98, 18, "#fffdf5", "#2b2318");
+        ctx.fillStyle = dark;
+        ctx.font = "bold 54px 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(currentCard(), 0, 50);
+        ctx.restore();
+      }
+
+      function drawSceneImage() {
+        const scene = scenes[state.sceneIndex];
+        const image = sceneImages[state.sceneIndex];
+        const [main, dark, accent] = scene.colors;
+        const bounce = Math.sin(state.helperBounce) * 12;
+        const x = helperPanel.x + helperPanel.width / 2;
+        const y = 282 + bounce;
+        const size = 204;
+
+        const glow = ctx.createRadialGradient(x, y - 8, 22, x, y - 8, 138);
+        glow.addColorStop(0, `${accent}cc`);
+        glow.addColorStop(0.45, `${main}66`);
+        glow.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y - 8, 138, 0, Math.PI * 2);
+        ctx.fill();
+
+        drawRoundedRect(helperPanel.x, helperPanel.y, helperPanel.width, helperPanel.height, 34, "rgba(255,255,255,0.78)", dark);
+
+        ctx.save();
+        ctx.globalAlpha = 0.96;
+        if (image.complete && image.naturalWidth > 0 && image.dataset.failed !== "true") {
+          ctx.beginPath();
+          ctx.roundRect(x - size / 2, y - size / 2, size, size, 32);
+          ctx.clip();
+          ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
+        } else {
+          drawFallbackMascot(scene, x, y + 22, size);
+        }
+        ctx.restore();
+
+        drawRoundedRect(610, 420, 236, 52, 18, accent, "#2b2318");
+        ctx.fillStyle = "#2b2318";
+        ctx.font = "bold 18px 'Noto Sans TC', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(scene.subtitle, 728, 446);
+
+        drawRoundedRect(604, 478, 248, 48, 18, "#fffdf7", "#2b2318");
+        ctx.fillStyle = "#2b2318";
+        ctx.font = "bold 19px 'Noto Sans TC', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(state.helperMessage, 728, 502);
+
+        drawRoundedRect(620, 534, 216, 44, 16, "#ffffff", "#2b2318");
+        ctx.font = "bold 20px 'Noto Sans TC', sans-serif";
+        ctx.fillText(`點我：${scene.name}`, 728, 556);
+      }
+
+      function drawFloatingDecor(width, height) {
+        const shapes = [
+          [112, 106, 56, "#ffcb3d", 0],
+          [824, 112, 64, "#8ee3bd", 1.2],
+          [762, 604, 52, "#b7d8ff", 2.3],
+          [76, 504, 38, "#ff8ab3", 3.1],
+          [884, 430, 34, "#fff8c7", 4.2],
+        ];
+        for (const [x, y, size, color, delay] of shapes) {
+          const driftX = Math.sin(state.sparklePhase * 0.55 + delay) * 12;
+          const driftY = Math.cos(state.sparklePhase * 0.48 + delay) * 10;
+          ctx.save();
+          ctx.translate(x + driftX, y + driftY);
+          ctx.rotate(Math.sin(state.sparklePhase * 0.25 + delay) * 0.12);
+          ctx.globalAlpha = 0.28;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.roundRect(-size / 2, -size / 2, size, size, size * 0.28);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.font = "34px serif";
+        ctx.globalAlpha = 0.5;
+        ctx.fillText("✦", width - 92 + Math.sin(state.sparklePhase) * 8, 70);
+        ctx.fillText("✿", 76, height - 62 + Math.cos(state.sparklePhase) * 6);
+        ctx.globalAlpha = 1;
+      }
+
+      function drawSoundPulse(x, y) {
+        if (state.soundPulse <= 0) {
+          return;
+        }
+        ctx.save();
+        ctx.globalAlpha = state.soundPulse * 0.62;
+        ctx.strokeStyle = "#4d6cb3";
+        ctx.lineWidth = 7;
+        for (let i = 0; i < 3; i += 1) {
+          const radius = 118 + (1 - state.soundPulse) * 90 + i * 28;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, -0.8, 0.8);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(x, y, radius, Math.PI - 0.8, Math.PI + 0.8);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawCardFace() {
+        const pop = state.cardPop;
+        const scale = 1 + Math.sin(pop * Math.PI) * 0.08;
+        const tilt = Math.sin(pop * Math.PI) * -0.025;
+        ctx.save();
+        ctx.translate(352, 329);
+        ctx.rotate(tilt);
+        ctx.scale(scale, scale);
+        drawRoundedRect(-210, -171, 420, 342, 32, "#fff3c9", "#2b2318");
+
+        const shine = ctx.createLinearGradient(-190, -150, 176, 112);
+        shine.addColorStop(0, "rgba(255,255,255,0.82)");
+        shine.addColorStop(0.36, "rgba(255,255,255,0.18)");
+        shine.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = shine;
+        ctx.beginPath();
+        ctx.roundRect(-188, -148, 376, 80, 24);
+        ctx.fill();
+
+        drawSoundPulse(0, 0);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(43, 35, 24, 0.18)";
+        ctx.font = "bold 310px 'Noto Serif TC', 'PMingLiU', serif";
+        ctx.fillText(currentCard(), 8, 10);
+        ctx.fillStyle = "#2b2318";
+        ctx.fillText(currentCard(), 0, -1);
+        ctx.restore();
+      }
+
+      function drawCelebrationParticles() {
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const particle of celebrationParticles) {
+          ctx.globalAlpha = Math.max(0, particle.life);
+          ctx.fillStyle = particle.color;
+          ctx.font = `bold ${particle.size}px serif`;
+          ctx.save();
+          ctx.translate(particle.x, particle.y);
+          ctx.rotate(particle.spin);
+          ctx.fillText(particle.text, 0, 0);
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      function render() {
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, "#fff6cf");
+        gradient.addColorStop(0.55, "#e9fbff");
+        gradient.addColorStop(1, "#ffe4ef");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        drawFloatingDecor(width, height);
+
+        drawRoundedRect(96, 118, 760, 430, 42, "rgba(255, 255, 255, 0.92)", "#2b2318");
+        drawCardFace();
+        drawSceneImage();
+
+        orderBtn.textContent = `排序：${state.orderMode === "random" ? "隨機" : "順序"}`;
+        levelBtn.textContent = `程度：${levelLabel()}`;
+        reviewBtn.textContent = state.reviewMode ? "返回全部字卡" : "重溫未認得";
+        speakBtn.disabled = !speechSupported();
+        speakBtn.textContent = speechSupported() ? "讀廣東話" : "未支援讀音";
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#2b2318";
+        ctx.font = "bold 31px 'Noto Sans TC', sans-serif";
+        ctx.fillText(`第 ${state.index + 1} / ${cardDeck.length} 張`, width / 2, 590);
+        ctx.font = "24px 'Noto Sans TC', sans-serif";
+        ctx.fillStyle = "#685946";
+        const modeLabel = `${levelLabel()}｜${state.orderMode === "random" ? "隨機" : "順序"}｜${state.reviewMode ? "重溫未認得" : "正常練習"}`;
+        ctx.fillText(`已認得：${state.known}  顆星星｜${modeLabel}｜小幫手幫你讀：${state.readCount} 次`, width / 2, 635);
+
+        const stars = [
+          [96, 592],
+          [856, 590],
+          [104, 224],
+          [854, 248],
+        ];
+        ctx.font = "46px serif";
+        ctx.fillStyle = "#f4a52c";
+        for (const [x, y] of stars) {
+          ctx.fillText("★", x, y + Math.sin(state.sparklePhase + x) * 4);
+        }
+        drawCelebrationParticles();
+      }
+
+      function resizeCanvas() {
+        canvas.width = 960;
+        canvas.height = 720;
+        render();
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      }
+
+      function updateAnimation(deltaMs) {
+        state.sparklePhase += deltaMs / 620;
+        state.helperBounce += deltaMs / 680;
+        state.cardPop = Math.max(0, state.cardPop - deltaMs / 420);
+        state.soundPulse = Math.max(0, state.soundPulse - deltaMs / 760);
+
+        for (let i = celebrationParticles.length - 1; i >= 0; i -= 1) {
+          const particle = celebrationParticles[i];
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.vy += 0.18;
+          particle.spin += 0.08;
+          particle.life -= deltaMs / 820;
+          if (particle.life <= 0) {
+            celebrationParticles.splice(i, 1);
+          }
+        }
+      }
+
+      let lastFrameTime = performance.now();
+      function animationLoop(now) {
+        const deltaMs = Math.min(now - lastFrameTime, 48);
+        lastFrameTime = now;
+        updateAnimation(deltaMs);
+        render();
+        requestAnimationFrame(animationLoop);
+      }
+
+      nextBtn.addEventListener("click", () => nextCard());
+      knownBtn.addEventListener("click", markKnown);
+      tryAgainBtn.addEventListener("click", tryAgainCurrentCard);
+      speakBtn.addEventListener("click", speakCurrentCard);
+      sceneBtn.addEventListener("click", nextScene);
+      levelBtn.addEventListener("click", toggleLevelMode);
+      orderBtn.addEventListener("click", toggleOrderMode);
+      reviewBtn.addEventListener("click", toggleReviewMode);
+      canvas.addEventListener("click", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+        if (
+          x >= helperPanel.x &&
+          x <= helperPanel.x + helperPanel.width &&
+          y >= helperPanel.y &&
+          y <= helperPanel.y + helperPanel.height
+        ) {
+          tapHelper();
+          return;
+        }
+        nextCard("點字卡");
+      });
+      window.addEventListener("resize", resizeCanvas);
+      if (speechSupported()) {
+        window.speechSynthesis.addEventListener?.("voiceschanged", render);
+      }
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "Space") {
+          event.preventDefault();
+          nextCard("空白鍵");
+        }
+        if (event.key.toLowerCase() === "f") {
+          toggleFullscreen();
+        }
+      });
+
+      window.advanceTime = (ms) => {
+        updateAnimation(ms);
+        render();
+      };
+
+      window.render_game_to_text = () =>
+        JSON.stringify({
+          note: "Canvas coordinate origin is top-left. X increases right, Y increases down.",
+          mode: "flashcard",
+          currentCard: currentCard(),
+          index: state.index + 1,
+          totalCards: cardDeck.length,
+          basicCards: basicCards.length,
+          advancedCards: advancedCards.length,
+          allCards: cards.length,
+          levelMode: state.levelMode,
+          randomizedOrder: state.orderMode === "random",
+          orderMode: state.orderMode,
+          reviewMode: state.reviewMode,
+          knownCount: state.known,
+          correctStreak: state.correctStreak,
+          tryAgainCount: state.tryAgainCount,
+          scene: scenes[state.sceneIndex].name,
+          helperMessage: state.helperMessage,
+          helperTaps: state.helperTaps,
+          readCount: state.readCount,
+          activeAnimations: {
+            cardPop: Number(state.cardPop.toFixed(2)),
+            soundPulse: Number(state.soundPulse.toFixed(2)),
+            celebrationParticles: celebrationParticles.length,
+          },
+          azureImageLoaded: useAzurePngAssets && sceneImages[state.sceneIndex].complete && sceneImages[state.sceneIndex].naturalWidth > 0,
+          speechSupported: speechSupported(),
+          speechVoice: selectedSpeechVoice()?.name || "",
+          lastAction: state.lastAction,
+          controls: ["click card", "click helper", "click next button", "click known button", "click try-again button", "click speak button", "click scene button", "click level button", "click order button", "click review button", "Space", "F fullscreen"],
+        });
+
+      resizeCanvas();
+      if (!prefersReducedMotion) {
+        requestAnimationFrame(animationLoop);
+      }
+    </script>
+  </body>
+</html>
