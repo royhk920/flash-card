@@ -411,8 +411,9 @@
         playEncouragementMelody();
         launchCelebration(350, 325, "known");
         const encouragement = correctEncouragement(knownCard);
+        const encouragementAudio = mandarinCorrectDialoguePath(knownCard, state.correctStreak);
         state.helperMessage = encouragement;
-        speakEncouragement(encouragement);
+        speakEncouragement(encouragement, encouragementAudio);
         knownCards.add(knownCard);
         state.known = knownCards.size;
         if (state.reviewMode) {
@@ -447,7 +448,7 @@
         return state.speechMode === "mandarin" ? mandarin : cantonese;
       }
 
-      function tryAgainPrompt(card) {
+      function tryAgainPrompt(card, promptIndex = state.tryAgainCount % 5) {
         if (state.speechMode === "mandarin") {
           const prompts = [
             `沒關係，請跟我讀一次「${card}」，這個字讀作「${card}」。`,
@@ -456,7 +457,7 @@
             `很接近了，聽清楚一次：「${card}」。請跟我讀「${card}」。`,
             `你可以的，先聽我讀：「${card}」。這個字讀作「${card}」。`,
           ];
-          return prompts[state.tryAgainCount % prompts.length];
+          return prompts[promptIndex % prompts.length];
         }
         const prompts = [
           `唔緊要，請跟我讀一次「${card}」，呢個字讀音係「${card}」。`,
@@ -465,20 +466,21 @@
           `好接近喇，聽清楚一次：「${card}」。請跟我讀「${card}」。`,
           `你可以嘅，先聽我讀：「${card}」。呢個字讀音係「${card}」。`,
         ];
-        return prompts[state.tryAgainCount % prompts.length];
+        return prompts[promptIndex % prompts.length];
       }
 
       function tryAgainCurrentCard() {
         const card = currentCard();
         state.correctStreak = 0;
-        const prompt = tryAgainPrompt(card);
+        const promptIndex = state.tryAgainCount % 5;
+        const prompt = tryAgainPrompt(card, promptIndex);
         state.tryAgainCount += 1;
         state.helperBounce += Math.PI / 2.2;
         state.soundPulse = 1;
         state.lastAction = modeText("未識，再試", "不會，再試");
         state.helperMessage = prompt;
         launchCelebration(728, 320, "helper");
-        speakEncouragement(prompt);
+        speakEncouragement(prompt, mandarinTryAgainDialoguePath(card, promptIndex));
         render();
       }
 
@@ -569,11 +571,25 @@
         return state.speechMode === "mandarin" ? "zh-CN" : "zh-HK";
       }
 
-      function mandarinAudioPath(card) {
-        const filename = Array.from(card)
+      function codepointAudioStem(text) {
+        return Array.from(text)
           .map((char) => `u${char.codePointAt(0).toString(16).padStart(4, "0")}`)
           .join("-");
-        return `assets/tts/mandarin/${filename}.mp3`;
+      }
+
+      function mandarinAudioPath(card) {
+        return `assets/tts/mandarin/${codepointAudioStem(card)}.mp3`;
+      }
+
+      function mandarinTryAgainDialoguePath(card, promptIndex) {
+        return `assets/tts/mandarin-dialogue/try-again-${promptIndex + 1}-${codepointAudioStem(card)}.mp3`;
+      }
+
+      function mandarinCorrectDialoguePath(card, streak) {
+        if (streak > 0 && streak % 3 === 0) {
+          return `assets/tts/mandarin-dialogue/streak-${streak}.mp3`;
+        }
+        return `assets/tts/mandarin-dialogue/correct-${codepointAudioStem(card)}.mp3`;
       }
 
       function stopMandarinAudio() {
@@ -585,7 +601,7 @@
         mandarinCardAudio.currentTime = 0;
       }
 
-      function playMandarinCardAudio(card) {
+      function playMandarinLocalAudio(source, fallbackText, fallbackMessage, fallbackAction) {
         if (!audioSupported()) {
           return false;
         }
@@ -596,16 +612,17 @@
             return;
           }
           fallbackUsed = true;
-          const voice = speakText(card, 0.78, 1.05);
-          state.helperMessage = voice
-            ? `本地普通話音訊未能播放，改用瀏覽器讀：${card}`
-            : `本地普通話音訊未能播放：${card}`;
-          state.lastAction = "普通話後備讀音";
+          const voice = speakText(fallbackText, 0.86, 1.08);
+          state.helperMessage = voice ? fallbackMessage : `本地普通話音訊未能播放：${fallbackText}`;
+          state.lastAction = fallbackAction;
           render();
         };
 
+        if (speechSupported()) {
+          window.speechSynthesis.cancel();
+        }
         mandarinCardAudio.pause();
-        mandarinCardAudio.src = mandarinAudioPath(card);
+        mandarinCardAudio.src = source;
         mandarinCardAudio.currentTime = 0;
         mandarinCardAudio.onerror = fallbackToSpeech;
 
@@ -615,6 +632,24 @@
         }
         state.soundPulse = 1;
         return true;
+      }
+
+      function playMandarinCardAudio(card) {
+        return playMandarinLocalAudio(
+          mandarinAudioPath(card),
+          card,
+          `本地普通話音訊未能播放，改用瀏覽器讀：${card}`,
+          "普通話後備讀音"
+        );
+      }
+
+      function playMandarinDialogueAudio(text, source) {
+        return playMandarinLocalAudio(
+          source,
+          text,
+          "本地普通話對白未能播放，改用瀏覽器讀。",
+          "普通話對白後備讀音"
+        );
       }
 
       function isCantoneseVoiceCandidate(voice) {
@@ -680,7 +715,10 @@
         return voice;
       }
 
-      function speakEncouragement(text) {
+      function speakEncouragement(text, mandarinDialogueSource = "") {
+        if (state.speechMode === "mandarin" && mandarinDialogueSource && playMandarinDialogueAudio(text, mandarinDialogueSource)) {
+          return null;
+        }
         return speakText(text, 0.92, 1.12);
       }
 
@@ -1175,6 +1213,7 @@
           speechSupported: speechSupported(),
           audioSupported: audioSupported(),
           mandarinAudio: mandarinAudioPath(currentCard()),
+          mandarinDialogueAudio: mandarinCorrectDialoguePath(currentCard(), Math.max(1, state.correctStreak)),
           speechVoice: selectedSpeechVoice()?.name || "",
           speechLang: selectedSpeechVoice()?.lang || speechLanguageCode(),
           lastAction: state.lastAction,
